@@ -5,7 +5,7 @@ import sys, os, json, logging
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.retrieval.query_rewriter import QueryRewriter
-from src.routing.conversation_manager import ConversationManager
+from src.routing.conversation_manager import DialogueManager
 from src.memory.conversation_memory import ConversationMemory
 from src.routing.dialogue_state_tracker import DialogueStateTracker
 
@@ -18,7 +18,7 @@ def generate_real_data():
     print("=" * 60)
 
     rewriter = QueryRewriter()
-    manager = ConversationManager()
+    manager = DialogueManager()
     memory = ConversationMemory()
     tracker = DialogueStateTracker()
 

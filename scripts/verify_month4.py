@@ -8,7 +8,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.retrieval.query_rewriter import QueryRewriter
-from src.routing.conversation_manager import ConversationManager
+from src.routing.conversation_manager import DialogueManager
 from src.memory.conversation_memory import ConversationMemory
 from src.routing.clarification_generator import ClarificationGenerator
 from src.routing.dialogue_state_tracker import DialogueStateTracker
@@ -46,7 +46,7 @@ def verify_conversation_manager():
     """验证多轮对话管理"""
     logger.info("=== 验证多轮对话管理 ===")
 
-    manager = ConversationManager()
+    manager = DialogueManager()
 
     # 开始对话
     conversation = manager.start_conversation("test-session-1")
@@ -183,7 +183,7 @@ def verify_end_to_end():
 
     # 初始化所有组件
     rewriter = QueryRewriter()
-    manager = ConversationManager()
+    manager = DialogueManager()
     memory = ConversationMemory()
     tracker = DialogueStateTracker()
     generator = ClarificationGenerator()

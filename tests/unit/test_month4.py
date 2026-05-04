@@ -57,17 +57,17 @@ def test_query_rewriter_decompose():
 
 def test_conversation_manager_init():
     """测试对话管理器初始化"""
-    from src.routing.conversation_manager import ConversationManager
+    from src.routing.conversation_manager import DialogueManager
 
-    manager = ConversationManager()
+    manager = DialogueManager()
     assert manager is not None
 
 
 def test_conversation_manager_start():
     """测试开始对话"""
-    from src.routing.conversation_manager import ConversationManager
+    from src.routing.conversation_manager import DialogueManager
 
-    manager = ConversationManager()
+    manager = DialogueManager()
 
     conversation = manager.start_conversation("test-session-1")
     assert conversation is not None
@@ -77,9 +77,9 @@ def test_conversation_manager_start():
 
 def test_conversation_manager_add_turn():
     """测试添加对话轮次"""
-    from src.routing.conversation_manager import ConversationManager
+    from src.routing.conversation_manager import DialogueManager
 
-    manager = ConversationManager()
+    manager = DialogueManager()
 
     manager.start_conversation("test-session-2")
     conversation = manager.add_turn("test-session-2", "用户查询", "系统响应")
@@ -211,10 +211,10 @@ def test_multi_turn_retrieval_init():
 def test_multi_turn_retrieval_empty_history():
     """测试多轮检索类可正常实例化并处理基本调用"""
     from src.retrieval.multi_turn_retrieval import MultiTurnRetrieval
-    from src.routing.conversation_manager import ConversationManager
+    from src.routing.conversation_manager import DialogueManager
 
     retrieval = MultiTurnRetrieval()
-    cm = ConversationManager()
+    cm = DialogueManager()
     cm.start_conversation("test-session-mt")
 
     # 验证方法签名可调用（即使参数不完整也不会崩溃类本身）

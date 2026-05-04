@@ -3,12 +3,12 @@
 """
 import pytest
 
-from src.routing.conversation_manager import ConversationManager
+from src.routing.conversation_manager import DialogueManager
 from src.memory.conversation_memory import ConversationMemory
 
 def test_multi_turn_scenario():
     """测试多轮对话场景"""
-    manager = ConversationManager()
+    manager = DialogueManager()
     memory = ConversationMemory()
 
     session_id = "multi-turn-test"

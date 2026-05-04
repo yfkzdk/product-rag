@@ -1,7 +1,7 @@
 """
-多轮对话管理器
+对话状态管理器
 
-基于LangChain的对话流程管理
+管理多轮对话的状态机流转和上下文追踪
 """
 from typing import List, Dict, Optional
 from enum import Enum
@@ -20,8 +20,8 @@ class DialogueState(Enum):
     FAILED = "failed"
 
 
-class ConversationManager:
-    """多轮对话管理器"""
+class DialogueManager:
+    """对话状态管理器 — 追踪多轮对话的状态机和上下文"""
 
     def __init__(self, max_turns: int = 10):
         """
@@ -214,4 +214,4 @@ class ConversationManager:
 
 
 # 全局实例
-conversation_manager = ConversationManager()
+dialogue_manager = DialogueManager()
