@@ -1,4 +1,3 @@
-import hashlib
 import json
 import os
 import socket
@@ -27,12 +26,12 @@ def _get_worker_script_path():
 
 
 class BGEEncoder:
-    """BGE 文本嵌入模型 — 支持直接加载 / 子进程隔离 / hash 降级三种模式。
+    """BGE 文本嵌入模型 — 支持直接加载 / 子进程隔离 / n-gram 降级三种模式。
 
     模式选择：
     - BGE_SUBPROCESS=1: 子进程隔离 PyTorch，避免 uvicorn segfault（推荐服务器）
-    - SKIP_BGE_MODEL=1: hash 降级（紧急兼容）
-    - 均不设置: 直接加载模型（CLI / 脚本）
+    - SKIP_BGE_MODEL=1: 字符 n-gram feature hashing 降级（保留文本相似性，非语义）
+    - 均不设置: 直接加载 BGE 模型（需要 PyTorch + HuggingFace 可达）
     """
 
     def __init__(self):
@@ -51,11 +50,11 @@ class BGEEncoder:
         import os
         settings = get_settings()
 
-        # Path A: hash-only fallback
+        # Path A: n-gram fallback
         if settings.SKIP_BGE_MODEL:
             self._model_load_failed = True
             self._initialized = True
-            logger.info("BGE: hash fallback (SKIP_BGE_MODEL=1)")
+            logger.info("BGE: n-gram fallback (SKIP_BGE_MODEL=1)")
             return
 
         # Path B: subprocess-isolated worker (safe under uvicorn)
@@ -90,7 +89,7 @@ class BGEEncoder:
 
         self._model_load_failed = True
         self._initialized = True
-        logger.warning("BGE model unavailable, using hash fallback")
+        logger.warning("BGE model unavailable, using n-gram fallback")
 
     def _start_worker(self):
         """启动子进程嵌入 Worker，隔离 PyTorch 防止 uvicorn segfault"""
@@ -138,7 +137,7 @@ class BGEEncoder:
     def _encode_subprocess(self, texts: List[str]) -> Optional[List[List[float]]]:
         """通过子进程 Worker 编码，失败返回 None"""
         if self._worker is None or self._worker.poll() is not None:
-            logger.warning("BGE worker died, falling back to hash")
+            logger.warning("BGE worker died, falling back to n-gram")
             self._stop_worker()
             self._model_load_failed = True
             return None
@@ -157,16 +156,27 @@ class BGEEncoder:
             self._stop_worker()
             return None
 
-    def _hash_vector(self, text: str) -> List[float]:
+    def _ngram_vector(self, text: str) -> List[float]:
+        """字符 n-gram feature hashing 向量 (BGE 模型不可用时的降级方案)
+
+        提取 3-5 字符 n-gram，通过 feature hashing 映射到固定维度向量。
+        相似文本共享大量 n-gram → 向量距离近（保留文本相似性）。
+        与 SHA-256（雪崩效应）不同，这是正确的轻量级文本向量化方法。
+
+        等价于 sklearn HashingVectorizer(ngram_range=(3,5)) 的手工实现。
+        """
         dim = self.dimension
         vec = [0.0] * dim
-        for seed in range(4):
-            h = hashlib.sha256(f"{seed}:{text}".encode()).digest()
-            for i in range(min(dim, len(h) * 8)):
-                byte_idx = i // 8
-                bit_idx = i % 8
-                if (h[byte_idx % len(h)] >> bit_idx) & 1:
-                    vec[i] += 0.25
+
+        # 3-5 character n-grams capture word fragments and short phrases
+        # e.g. "故障代码" → ["故障代", "障代码", "故障代码"]
+        for n in (3, 4, 5):
+            for i in range(len(text) - n + 1):
+                ngram = text[i:i + n]
+                h = hash(ngram)
+                vec[h % dim] += 1.0
+
+        # L2 normalize
         norm = sum(v * v for v in vec) ** 0.5
         if norm > 0:
             vec = [v / norm for v in vec]
@@ -180,12 +190,12 @@ class BGEEncoder:
             result = self._encode_subprocess(texts)
             if result is not None:
                 return result
-            return [self._hash_vector(t) for t in texts]
+            return [self._ngram_vector(t) for t in texts]
 
         # Direct model path
         if self._model is None:
-            logger.debug("Using hash-based fallback embeddings")
-            return [self._hash_vector(t) for t in texts]
+            logger.debug("Using n-gram fallback embeddings")
+            return [self._ngram_vector(t) for t in texts]
 
         settings = get_settings()
         effective_batch_size = batch_size or settings.EMBEDDING_BATCH_SIZE
@@ -199,8 +209,8 @@ class BGEEncoder:
             )
             return embeddings.tolist()
         except Exception as e:
-            logger.warning(f"Embedding failed, using hash fallback: {e}")
-            return [self._hash_vector(t) for t in texts]
+            logger.warning(f"Embedding failed, falling back to n-gram: {e}")
+            return [self._ngram_vector(t) for t in texts]
 
     def encode_single(self, text: str) -> List[float]:
         result = self.encode([text])
