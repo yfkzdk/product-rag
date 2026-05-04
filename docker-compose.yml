@@ -1,0 +1,90 @@
+# ============================================================
+# RAG 工业产品知识图谱 — Docker Compose 基础设施
+# ============================================================
+# 一键启动: docker compose up -d
+# 一键停止: docker compose down
+# 清除数据: docker compose down -v
+# 单独启动: docker compose up -d milvus neo4j
+# ============================================================
+
+services:
+  # ==================== PostgreSQL (pgvector) ====================
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: product_kg_postgres
+    environment:
+      POSTGRES_USER: product_kg
+      POSTGRES_PASSWORD: product_kg
+      POSTGRES_DB: product_kg
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U product_kg"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ==================== Redis ====================
+  redis:
+    image: redis:7-alpine
+    container_name: product_kg_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ==================== Milvus 向量数据库 (Standalone, 内嵌 etcd) ====================
+  milvus:
+    image: milvusdb/milvus:v2.4-latest
+    container_name: product_kg_milvus
+    environment:
+      ETCD_USE_EMBED: "true"
+      ETCD_DATA_DIR: /var/lib/milvus/etcd
+      COMMON_STORAGETYPE: local
+    ports:
+      - "19530:19530"
+      - "9091:9091"
+    volumes:
+      - milvus_data:/var/lib/milvus
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # ==================== Neo4j 知识图谱 ====================
+  neo4j:
+    image: neo4j:5.25-community
+    container_name: product_kg_neo4j
+    environment:
+      NEO4J_AUTH: neo4j/product_kg_password
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_server_memory_heap_initial__size: 512m
+      NEO4J_server_memory_heap_max__size: 1g
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    healthcheck:
+      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "product_kg_password", "RETURN 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  postgres_data:
+  redis_data:
+  milvus_data:
+  neo4j_data:
+  neo4j_logs:

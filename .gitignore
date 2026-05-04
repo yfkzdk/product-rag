@@ -1,0 +1,73 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+.env.local
+
+# Database
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Data files (generated)
+data/local_vectors.npz
+data/local_vectors_meta.pkl
+data/pdfs/
+data/industrial_dataset.json
+data/product_manual.md
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Docker
+.docker/
+
+# Coverage
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+
+# Logs
+*.log
+
+# Harness / Dev tooling
+.claude/
+.harness*
+harness-*.json
+harness-*.txt
+harness-init.sh
+plans/
+specs/
+references/
+VERIFICATION_SUMMARY.md
+month*_real_data.json
+.env.test
+_debug_*
+面试准备*

@@ -1,0 +1,47 @@
+{
+  "dashboard": {
+    "title": "Product KG RAG Dashboard",
+    "panels": [
+      {
+        "title": "Query Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(rag_queries_total[5m])",
+            "legendFormat": "queries/sec"
+          }
+        ]
+      },
+      {
+        "title": "Query Latency",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(rag_query_latency_seconds_bucket[5m]))",
+            "legendFormat": "P95 latency"
+          }
+        ]
+      },
+      {
+        "title": "Faithfulness Score",
+        "type": "gauge",
+        "targets": [
+          {
+            "expr": "rag_faithfulness_score",
+            "legendFormat": "Faithfulness"
+          }
+        ]
+      },
+      {
+        "title": "Context Precision",
+        "type": "gauge",
+        "targets": [
+          {
+            "expr": "rag_context_precision_score",
+            "legendFormat": "Precision"
+          }
+        ]
+      }
+    ]
+  }
+}

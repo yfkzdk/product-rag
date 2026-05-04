@@ -1,0 +1,60 @@
+# ============================================================
+# 生产部署 — AWS EC2 t2.micro (1GB RAM) 优化
+# ============================================================
+# 只启动 PostgreSQL + FastAPI，其余服务降级为内存模式
+# ============================================================
+
+services:
+  # PostgreSQL (pgvector) — 内存限制 300MB
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: product_kg_postgres
+    environment:
+      POSTGRES_USER: product_kg
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-product_kg}
+      POSTGRES_DB: product_kg
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    command: >
+      postgres
+      -c shared_buffers=128MB
+      -c effective_cache_size=384MB
+      -c maintenance_work_mem=32MB
+      -c wal_buffers=8MB
+      -c max_connections=20
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U product_kg"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # FastAPI — 单 worker，内存限制 400MB
+  api:
+    build: .
+    container_name: product_kg_api
+    ports:
+      - "8000:8000"
+    environment:
+      - POSTGRES_URL=postgresql://product_kg:${PG_PASSWORD:-product_kg}@postgres:5432/product_kg
+      - REDIS_URL=
+      - MILVUS_HOST=
+      - NEO4J_URI=
+      - DEMO_MODE=false
+      - BGE_SUBPROCESS=false
+      - SKIP_BGE_MODEL=true
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 400M
+
+volumes:
+  postgres_data:
