@@ -50,7 +50,46 @@ class PromptTemplates:
 
 用户查询：{query}
 
-请提供准确、有用的回答。如果信息不足请明确说明。"""
+请提供准确、有用的回答。如果信息不足请明确说明。""",
+
+            "vision_spec": """基于以下产品信息和图片分析结果回答用户查询。
+
+产品信息：
+{context}
+
+图片分析结果：
+{visual_context}
+
+用户查询：{query}
+
+请结合图片中提取的参数和产品规格信息，提供准确的产品信息。""",
+
+            "vision_troubleshoot": """基于以下故障排查信息和图片分析结果回答用户查询。
+
+相关故障信息：
+{context}
+
+图片分析结果：
+{visual_context}
+
+用户描述的故障：{query}
+
+请结合图片中的故障现象，提供：
+1. 可能的故障原因
+2. 推荐的排查步骤
+3. 解决方案""",
+
+            "vision_general": """基于以下信息和图片分析结果回答用户查询。
+
+相关信息：
+{context}
+
+图片分析结果：
+{visual_context}
+
+用户查询：{query}
+
+请结合图片内容，提供准确、有用的回答。如果信息不足请明确说明。""",
         }
 
     def get_template(self, intent: str) -> str:
@@ -61,6 +100,13 @@ class PromptTemplates:
         """格式化提示词"""
         template = self.get_template(intent)
         return template.format(context=context, query=query)
+
+    def format_prompt_with_vision(self, intent: str, context: str, query: str,
+                                   visual_context: str) -> str:
+        """格式化带视觉上下文的提示词"""
+        vision_intent = f"vision_{intent}" if intent in ("spec", "troubleshoot") else "vision_general"
+        template = self._templates.get(vision_intent, self._templates.get("vision_general", self._templates["general"]))
+        return template.format(context=context, query=query, visual_context=visual_context)
 
     def get_model(self) -> str:
         """获取LLM模型名称"""
