@@ -27,7 +27,7 @@ class ResponseGenerator:
             return
 
         try:
-            self._client = OpenAI(api_key=api_key, base_url=settings.LLM_BASE_URL)
+            self._client = OpenAI(api_key=api_key, base_url=settings.LLM_BASE_URL, timeout=60.0)
             self._initialized = True
             logger.info(f"LLM client initialized for generation: {settings.LLM_PROVIDER}")
         except Exception as e:
@@ -90,6 +90,7 @@ class ResponseGenerator:
     def generate(self, query: str, context: str, intent: str = "general") -> Dict:
         self._ensure_client()
 
+        settings = get_settings()
         if self._client is None:
             return self._rule_based_generate(query, context, intent)
 
@@ -102,7 +103,7 @@ class ResponseGenerator:
 
             response = self._client.chat.completions.create(
                 model=settings.LLM_MODEL_CHAT,
-                max_tokens=2048,
+                max_tokens=4096,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt},
@@ -143,7 +144,7 @@ class ResponseGenerator:
 
             stream = self._client.chat.completions.create(
                 model=settings.LLM_MODEL_CHAT,
-                max_tokens=2048,
+                max_tokens=4096,
                 stream=True,
                 messages=[
                     {"role": "system", "content": system_prompt},

@@ -10,8 +10,13 @@ logger = logging.getLogger(__name__)
 class HyDERetriever:
     """HyDE (Hypothetical Document Embedding) 检索器
 
-    HyDE 标准路径：LLM 生成假设文档 → 嵌入 → 向量检索
-    降级路径：领域预置模板文档（Demo 模式 / LLM 不可用时自动切换）
+    标准 HyDE 流程（Precise-Zero 论文方法）：
+      LLM 生成假设文档 → 嵌入编码 → 向量检索真实文档 → 返回真实文档
+
+    假设文档仅作为"高级搜索词"使用，不直接返回给用户。
+    降级路径：
+      - LLM 不可用 → 领域预置模板文档
+      - 向量库不可用 → 返回假设文档本身（含 is_degraded 标记）
     """
 
     def __init__(self):
@@ -31,7 +36,7 @@ class HyDERetriever:
             return
 
         try:
-            self._client = OpenAI(api_key=api_key, base_url=settings.LLM_BASE_URL)
+            self._client = OpenAI(api_key=api_key, base_url=settings.LLM_BASE_URL, timeout=10.0)
             logger.info(f"HyDE LLM client initialized: {settings.LLM_PROVIDER}")
         except Exception as e:
             logger.warning(f"HyDE LLM client init failed, will use mock fallback: {e}")
@@ -67,28 +72,87 @@ class HyDERetriever:
             logger.warning(f"HyDE LLM generation failed, falling back to mock: {e}")
         return None
 
+    def _vector_search(self, hypo_doc: str, top_k: int, chunk_type: str) -> List[Dict]:
+        """将假设文档编码为向量，在本地向量库中检索真实文档
+
+        使用直接模块加载绕过包 __init__.py 的链式 import，
+        避免触发 sqlalchemy/Milvus/Neo4j 等重量依赖。
+        """
+        import importlib.util as _iu
+        import os as _os
+
+        _pkg = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+
+        import sys as _sys
+
+        def _load(modname, relpath):
+            s = _iu.spec_from_file_location(modname, _os.path.join(_pkg, relpath))
+            m = _iu.module_from_spec(s)
+            _sys.modules.setdefault(modname, m)
+            s.loader.exec_module(m)
+            return m
+
+        _bge = _load('bge_embedder', 'embeddings/bge_embedder.py')
+        _lvs = _load('local_vector_store', 'storage/local_vector_store.py')
+
+        store = _lvs.get_local_vector_store()
+        if not store.is_available:
+            logger.info("HyDE: vector store unavailable, returning hypothetical doc as fallback")
+            return [{
+                "chunk_id": None,
+                "chunk_type": f"{chunk_type}_degraded",
+                "content": hypo_doc,
+                "score": 0.85,
+                "is_degraded": True,
+            }]
+
+        encoder = _bge.get_encoder()
+        hypo_vector = encoder.encode_single(hypo_doc)
+        results = store.search(hypo_vector, top_k=top_k)
+
+        if not results:
+            logger.info("HyDE: vector search returned no results, returning hypothetical doc")
+            return [{
+                "chunk_id": None,
+                "chunk_type": f"{chunk_type}_degraded",
+                "content": hypo_doc,
+                "score": 0.85,
+                "is_degraded": True,
+            }]
+
+        for r in results:
+            r["source"] = "hyde"
+            r["chunk_type"] = chunk_type
+            r["hyde_hypothetical"] = hypo_doc[:200]
+            r["is_degraded"] = False
+
+        logger.info(f"HyDE retrieval: hypo_doc → {len(results)} real chunks from vector store")
+        return results
+
     def retrieve(self, query: str, top_k: Optional[int] = None) -> List[Dict]:
-        """HyDE 检索：LLM 生成假设文档（主路径），Mock 模板（降级路径）"""
+        """HyDE 检索：生成假设文档 → 编码 → 向量检索真实文档
+
+        标准路径：LLM 生成假设文档 → BGE/n-gram 编码 → 向量库检索真实 chunk
+        降级路径：Mock 模板 → 编码 → 向量库检索（向量库不可用时返回模板本身）
+        Demo 模式：直接使用 Mock 模板（跳过 LLM 调用）
+        """
         settings = get_settings()
         effective_top_k = top_k or settings.RETRIEVAL_TOP_K
 
         try:
-            # 主路径：LLM 生成假设文档
-            hypo_doc = self._generate_via_llm(query)
-            if hypo_doc is None:
-                # 降级路径：领域预置模板
+            if settings.DEMO_MODE:
                 hypo_doc = self._mock_hypothetical_doc(query)
-                logger.info(f"HyDE using mock fallback: {hypo_doc[:80]}...")
                 chunk_type = "hyde_mock"
             else:
-                chunk_type = "hyde_llm"
+                hypo_doc = self._generate_via_llm(query)
+                if hypo_doc is None:
+                    hypo_doc = self._mock_hypothetical_doc(query)
+                    logger.info(f"HyDE using mock fallback: {hypo_doc[:80]}...")
+                    chunk_type = "hyde_mock"
+                else:
+                    chunk_type = "hyde_llm"
 
-            return [{
-                "chunk_id": None,
-                "chunk_type": chunk_type,
-                "content": hypo_doc,
-                "score": 0.85
-            }]
+            return self._vector_search(hypo_doc, effective_top_k, chunk_type)
 
         except Exception as e:
             logger.error(f"HyDE retrieval failed: {e}")

@@ -2,6 +2,7 @@ from neo4j import GraphDatabase
 from src.config import get_settings
 from typing import List, Dict, Optional
 import logging
+import math
 
 logger = logging.getLogger(__name__)
 
@@ -27,9 +28,10 @@ class KnowledgeGraphStore:
         try:
             self._driver = GraphDatabase.driver(
                 settings.NEO4J_URI,
-                auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD)
+                auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD),
+                connection_timeout=5,
+                connection_acquisition_timeout=5,
             )
-            # Verify connectivity
             self._driver.verify_connectivity()
             self._initialized = True
             logger.info(f"Neo4j connected: {settings.NEO4J_URI}")
@@ -86,6 +88,64 @@ class KnowledgeGraphStore:
             logger.error(f"Failed to create product node: {e}")
             return False
 
+    def set_node_embedding(self, label: str, match_key: str, match_value: str, embedding: List[float]) -> bool:
+        """在节点上存储嵌入向量"""
+        self._ensure_connection()
+        if self._driver is None:
+            return False
+        try:
+            query = f"""
+            MATCH (n:{label} {{{match_key}: $match_value}})
+            SET n.embedding = $embedding
+            """
+            self.execute_query(query, {"match_value": match_value, "embedding": embedding})
+            return True
+        except Exception as e:
+            logger.error(f"Failed to set embedding on {label}: {e}")
+            return False
+
+    def search_by_embedding(self, label: str, query_embedding: List[float], limit: int = 5) -> List[Dict]:
+        """通过余弦相似度搜索具有嵌入的节点"""
+        self._ensure_connection()
+        if self._driver is None:
+            return []
+        try:
+            # Fetch all nodes with embeddings and compute cosine similarity in Python
+            query = f"""
+            MATCH (n:{label})
+            WHERE n.embedding IS NOT NULL
+            RETURN n.product_code AS product_code, n.name AS name,
+                   n.description AS description, n.fault_code AS fault_code,
+                   n.embedding AS embedding, labels(n) AS labels
+            """
+            nodes = self.execute_query(query)
+            if not nodes:
+                return []
+
+            scored = []
+            for node in nodes:
+                emb = node.get("embedding")
+                if not emb:
+                    continue
+                similarity = self._cosine_similarity(query_embedding, emb)
+                scored.append((similarity, node))
+
+            scored.sort(key=lambda x: x[0], reverse=True)
+            return [s[1] for s in scored[:limit]]
+        except Exception as e:
+            logger.error(f"Embedding search failed on {label}: {e}")
+            return []
+
+    @staticmethod
+    def _cosine_similarity(a: List[float], b: List[float]) -> float:
+        """计算余弦相似度"""
+        dot = sum(x * y for x, y in zip(a, b))
+        norm_a = math.sqrt(sum(x * x for x in a))
+        norm_b = math.sqrt(sum(x * x for x in b))
+        if norm_a == 0 or norm_b == 0:
+            return 0.0
+        return dot / (norm_a * norm_b)
+
     def find_n_hop_paths(self, start_node: str = None, node_type: str = "Product",
                          n_hops: int = 2, limit: int = 20) -> List[Dict]:
         """N-hop路径查询"""
@@ -128,16 +188,58 @@ class KnowledgeGraphStore:
 
         return self.execute_query(query, params)
 
-    def find_fault_solutions(self, product_name: str, fault_description: str) -> List[Dict]:
-        """查找故障解决方案"""
+    def find_fault_solutions(self, product_name: str, fault_description: str,
+                             query_embedding: Optional[List[float]] = None) -> List[Dict]:
+        """查找故障解决方案 — 嵌入优先，文本包含降级"""
+        self._ensure_connection()
+        if self._driver is None:
+            return []
+
+        # 主路径：嵌入余弦相似度搜索
+        if query_embedding:
+            nodes = self.search_by_embedding("Fault", query_embedding, limit=5)
+            if nodes:
+                results = []
+                for node in nodes:
+                    fault_code = node.get("fault_code", "")
+                    fault_desc = node.get("description", "")
+                    solutions = self.get_solutions_for_fault(fault_code)
+                    for sol in solutions:
+                        results.append({
+                            "fault": fault_desc,
+                            "fault_code": fault_code,
+                            "solution": sol.get("description", ""),
+                            "confidence": sol.get("confidence", 0.0),
+                        })
+                if results:
+                    return results
+
+        # 降级路径：文本包含 + Jaccard token 相似度
         query = """
         MATCH (p:Product {name: $name})-[:HAS_FAULT]->(f:Fault)
         WHERE f.description CONTAINS $fault_desc
         MATCH (f)-[:HAS_SOLUTION]->(s:Solution)
-        RETURN f.description AS fault, s.description AS solution, s.confidence AS confidence
+        RETURN f.description AS fault, f.fault_code AS fault_code,
+               s.description AS solution, s.confidence AS confidence
         """
         params = {"name": product_name, "fault_desc": fault_description}
         return self.execute_query(query, params)
+
+    def get_solutions_for_fault(self, fault_code: str) -> List[Dict]:
+        """获取故障对应的解决方案"""
+        query = """
+        MATCH (f:Fault {fault_code: $fault_code})-[:HAS_SOLUTION]->(s:Solution)
+        RETURN s.description AS description, s.confidence AS confidence
+        """
+        return self.execute_query(query, {"fault_code": fault_code})
+
+    def search_products_by_embedding(self, query_embedding: List[float], limit: int = 3) -> List[Dict]:
+        """通过嵌入搜索相似产品"""
+        return self.search_by_embedding("Product", query_embedding, limit)
+
+    def search_faults_by_embedding(self, query_embedding: List[float], limit: int = 5) -> List[Dict]:
+        """通过嵌入搜索相似故障"""
+        return self.search_by_embedding("Fault", query_embedding, limit)
 
     def get_product_compatibility(self, product_name: str) -> List[Dict]:
         """获取产品兼容性信息"""

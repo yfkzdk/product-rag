@@ -34,7 +34,7 @@ class IntentClassifier:
             return
 
         try:
-            self._client = OpenAI(api_key=api_key, base_url=settings.LLM_BASE_URL)
+            self._client = OpenAI(api_key=api_key, base_url=settings.LLM_BASE_URL, timeout=10.0)
             self._initialized = True
             logger.info(f"LLM client initialized: {settings.LLM_PROVIDER} ({settings.LLM_BASE_URL})")
         except Exception as e:
@@ -45,10 +45,9 @@ class IntentClassifier:
     def classify(self, query: str) -> Dict:
         self._ensure_client()
 
-        if self._client is None:
-            return self._keyword_fallback(query)
-
         settings = get_settings()
+        if settings.DEMO_MODE or self._client is None:
+            return self._keyword_fallback(query)
 
         try:
             response = self._client.chat.completions.create(

@@ -1,6 +1,4 @@
 from typing import List, Dict, Optional
-from src.storage.milvus.client import get_milvus_client
-from src.embeddings.bge_embedder import get_encoder
 from src.config import get_settings
 import logging
 
@@ -16,6 +14,8 @@ class VectorRetriever:
 
     def retrieve(self, query: str, top_k: Optional[int] = None) -> List[Dict]:
         """向量检索（Demo 模式仅本地向量，零网络超时）"""
+        from src.embeddings.bge_embedder import get_encoder
+
         settings = get_settings()
         effective_top_k = top_k or settings.RETRIEVAL_TOP_K
         results = []
@@ -38,6 +38,8 @@ class VectorRetriever:
 
         # 1. 尝试 Milvus
         try:
+            from src.storage.milvus.client import get_milvus_client
+
             encoder = get_encoder()
             milvus = get_milvus_client()
 

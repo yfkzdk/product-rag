@@ -21,6 +21,22 @@ class QueryCache:
         self._initialized = False
         self._lru: OrderedDict = OrderedDict()
 
+    @staticmethod
+    def _record_hit():
+        try:
+            from src.observability.metrics import metrics_collector
+            metrics_collector.record_cache_hit()
+        except Exception:
+            pass
+
+    @staticmethod
+    def _record_miss():
+        try:
+            from src.observability.metrics import metrics_collector
+            metrics_collector.record_cache_miss()
+        except Exception:
+            pass
+
     def _ensure_connection(self):
         """确保连接已建立"""
         if self._initialized:
@@ -73,7 +89,9 @@ class QueryCache:
             try:
                 value = self._client.get(key)
                 if value:
+                    self._record_hit()
                     return json.loads(value)
+                self._record_miss()
                 return None
             except Exception as e:
                 logger.error(f"Redis get error for key '{key}': {e}")
@@ -82,7 +100,9 @@ class QueryCache:
         nk = self._normalize_key(key)
         if nk in self._lru:
             self._lru.move_to_end(nk)
+            self._record_hit()
             return json.loads(self._lru[nk])
+        self._record_miss()
         return None
 
     def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:

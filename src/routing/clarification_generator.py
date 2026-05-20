@@ -25,7 +25,7 @@ class ClarificationGenerator:
             return
 
         try:
-            self._client = OpenAI(api_key=api_key, base_url=settings.LLM_BASE_URL)
+            self._client = OpenAI(api_key=api_key, base_url=settings.LLM_BASE_URL, timeout=10.0)
             self._initialized = True
             logger.info(f"LLM client initialized for clarification: {settings.LLM_PROVIDER}")
         except Exception as e:
