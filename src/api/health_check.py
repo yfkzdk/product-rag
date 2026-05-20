@@ -1,8 +1,6 @@
 from fastapi import APIRouter
 from src.storage.postgres.database import get_engine
-from src.storage.milvus.client import get_milvus_client
 from src.cache.query_cache import get_cache
-from src.storage.neo4j.client import get_kg_client
 from src.config import get_settings
 from typing import Dict, Callable, Optional
 import logging
@@ -75,6 +73,8 @@ async def health_check():
 
     # Milvus
     try:
+        from src.storage.milvus.client import get_milvus_client
+
         milvus = get_milvus_client()
         stats = milvus.get_stats()
         status["services"]["milvus"] = "healthy"
@@ -96,6 +96,8 @@ async def health_check():
 
     # Neo4j
     try:
+        from src.storage.neo4j.client import get_kg_client
+
         kg = get_kg_client()
         if kg.is_available:
             status["services"]["neo4j"] = "healthy"
@@ -125,11 +127,24 @@ async def metrics():
     except Exception:
         logger.debug("Alert check skipped (alerting system unavailable)")
 
+    # 缓存统计
+    cache_stats = {}
+    try:
+        from src.observability.metrics import metrics_collector
+        cache_stats = {
+            "hits": metrics_collector._cache_hits,
+            "misses": metrics_collector._cache_misses,
+            "hit_rate": round(metrics_collector.cache_hit_rate, 3),
+        }
+    except Exception:
+        cache_stats = {"error": "metrics unavailable"}
+
     return {
         "uptime_seconds": round(uptime, 1),
         "total_queries": _query_count,
         "avg_latency_ms": round(_total_latency_ms / _query_count, 1) if _query_count > 0 else 0,
         "last_faithfulness": round(_last_faithfulness, 2),
+        "cache": cache_stats,
         "alerts": alerts,
         "pipelines": {
             "intent_classification": "keyword_fallback",

@@ -167,55 +167,79 @@ body::after {
 }
 
 /* ===== Results ===== */
-.results-area { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:14px; }
+.results-area { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:0; padding-bottom: 20px; }
 
-.result-card {
-  background:var(--bg-card); border:1px solid var(--border-dim); border-radius:var(--radius-lg);
-  overflow:hidden; animation: cardSlide 0.4s var(--ease-spring);
-  transition:border-color 0.2s;
+/* Chat message */
+.msg-wrap {
+  display:flex; flex-direction:column; gap:4px;
+  animation: msgSlide 0.35s var(--ease-spring);
+  margin-bottom: 16px;
 }
-.result-card:hover { border-color:var(--border-mid); }
-@keyframes cardSlide { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+@keyframes msgSlide { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+.msg-wrap.user { align-items:flex-end; }
+.msg-wrap.assistant { align-items:flex-start; }
 
-.card-top {
-  display:flex; align-items:center; gap:10px; padding:16px 20px 0;
-  flex-wrap:wrap;
+.msg-role {
+  font-size:9px; font-family:var(--font-mono); color:var(--text-mute);
+  padding:0 14px; letter-spacing:0.05em; text-transform:uppercase;
 }
-.intent-tag {
-  font-size:10px; padding:4px 10px; border-radius:5px; font-family:var(--font-mono);
-  font-weight:700; letter-spacing:0.05em; text-transform:uppercase;
+.msg-wrap.user .msg-role { color:var(--accent); }
+.msg-wrap.assistant .msg-role { color:var(--cyan); }
+
+.msg-bubble {
+  max-width:85%; padding:12px 18px; border-radius:var(--radius-lg);
+  font-size:14px; line-height:1.75; white-space:pre-wrap; word-break:break-word;
+}
+.msg-wrap.user .msg-bubble {
+  background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.18);
+  color:var(--text-prime); border-bottom-right-radius:4px;
+}
+.msg-wrap.assistant .msg-bubble {
+  background:var(--bg-card); border:1px solid var(--border-dim);
+  color:var(--text-second); border-bottom-left-radius:4px;
+}
+
+.msg-meta {
+  display:flex; gap:8px; align-items:center; padding:0 14px; flex-wrap:wrap;
+  margin-top:2px;
+}
+.msg-meta .intent-tag {
+  font-size:9px; padding:3px 8px; border-radius:4px; font-family:var(--font-mono);
+  font-weight:600; letter-spacing:0.04em; text-transform:uppercase;
 }
 .intent-tag.spec { background:rgba(59,130,246,0.12); color:var(--blue); border:1px solid rgba(59,130,246,0.25); }
 .intent-tag.troubleshoot { background:rgba(239,68,68,0.12); color:var(--red); border:1px solid rgba(239,68,68,0.25); }
 .intent-tag.compatibility { background:rgba(6,214,160,0.12); color:var(--cyan); border:1px solid rgba(6,214,160,0.25); }
 .intent-tag.general { background:rgba(245,158,11,0.12); color:var(--accent); border:1px solid rgba(245,158,11,0.25); }
 
-.conf-badge {
-  width:38px; height:38px; border-radius:50%; flex-shrink:0;
-  display:flex; align-items:center; justify-content:center;
-  font-size:10px; font-family:var(--font-mono); font-weight:700;
-}
-.conf-badge.high { background:rgba(6,214,160,0.1); color:var(--cyan); border:2px solid var(--cyan); }
-.conf-badge.mid { background:rgba(245,158,11,0.1); color:var(--accent); border:2px solid var(--accent); }
-.conf-badge.low { background:rgba(239,68,68,0.1); color:var(--red); border:2px solid var(--red); }
-
-.time-chip {
-  font-size:10px; padding:3px 8px; border-radius:4px; font-family:var(--font-mono);
+.msg-meta .time-chip {
+  font-size:9px; padding:2px 7px; border-radius:3px; font-family:var(--font-mono);
   background:rgba(136,150,180,0.06); color:var(--text-mute);
   border:1px solid var(--border-dim);
 }
-
-.answer-body { padding:14px 20px 16px; font-size:14px; line-height:1.85; color:var(--text-second); white-space:pre-wrap; word-break:break-word; }
-
-.source-row {
-  display:flex; gap:5px; flex-wrap:wrap; padding:10px 20px 14px;
-  border-top:1px solid var(--border-dim);
+.msg-meta .conf-dot {
+  width:16px; height:16px; border-radius:50%; flex-shrink:0;
+  font-size:7px; font-family:var(--font-mono); display:flex; align-items:center; justify-content:center; font-weight:700;
 }
-.source-chip {
-  font-size:9px; padding:3px 8px; border-radius:4px; font-family:var(--font-mono);
+.conf-dot.high { background:rgba(6,214,160,0.1); color:var(--cyan); border:1px solid var(--cyan); }
+.conf-dot.mid { background:rgba(245,158,11,0.1); color:var(--accent); border:1px solid var(--accent); }
+.conf-dot.low { background:rgba(239,68,68,0.1); color:var(--red); border:1px solid var(--red); }
+
+.msg-meta .source-chip {
+  font-size:8px; padding:2px 6px; border-radius:3px; font-family:var(--font-mono);
   background:rgba(136,150,180,0.04); color:var(--text-mute);
   border:1px solid var(--border-dim);
 }
+
+/* New conversation button */
+.new-chat-btn {
+  display:inline-flex; align-items:center; gap:6px;
+  padding:6px 14px; border-radius:20px; border:1px solid var(--border-dim);
+  background:var(--bg-card); color:var(--text-mute);
+  font-size:11px; cursor:pointer; font-family:var(--font-mono);
+  transition:all 0.2s var(--ease-out); margin-left:8px;
+}
+.new-chat-btn:hover { border-color:var(--red); color:var(--red); background:rgba(239,68,68,0.06); }
 
 /* Empty state */
 .empty-state {
@@ -368,7 +392,7 @@ body::after {
   <!-- ===== MAIN ===== -->
   <main class="main-col">
     <div class="hero">
-      <h1>知识<span class="hl">检索引擎</span></h1>
+      <h1>知识<span class="hl">检索引擎</span><button class="new-chat-btn" onclick="newSession()" title="开始新对话">+ 新对话</button></h1>
       <p class="sub">四路混合检索 · RRF 融合 · 工业产品知识图谱</p>
     </div>
 
@@ -450,6 +474,10 @@ body::after {
         <div class="m-val blue" id="metUptime">—</div>
         <div class="m-label">运行时间</div>
       </div>
+      <div class="metric-card">
+        <div class="m-val cyan" id="metCacheHit">—</div>
+        <div class="m-label">缓存命中率</div>
+      </div>
     </div>
 
     <h3>服务状态</h3>
@@ -468,13 +496,25 @@ body::after {
 
 <script>
 /* ============================================================
-   IIKG Command Center — Client Logic
+   IIKG Command Center — Client Logic (Chat Mode)
    ============================================================ */
 const INTENT_LABELS = { spec:'规格查询', troubleshoot:'故障排查', compatibility:'兼容性查询', general:'通用查询' };
 const STAGE_NAMES = ['意图分类','规则校验','多路检索','RRF 融合 + 重排','响应生成'];
 const LLM_STAGES = new Set(['多路检索','RRF 融合 + 重排','响应生成']);
 
+// Session ID for multi-turn conversation
+var SESSION_ID = 'sess_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+
 function $(id) { return document.getElementById(id); }
+
+/* ===== Session Management ===== */
+function newSession() {
+  SESSION_ID = 'sess_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+  var area = $('resultsArea');
+  area.innerHTML = '<div class="empty-state"><div class="term-icon">&gt;_</div><div class="term-line">新对话已开始 — 输入查询以检索工业知识图谱</div></div>';
+  $('metQueries').textContent = '0';
+  resetPipeline();
+}
 
 /* ===== Pipeline Reset ===== */
 function resetPipeline() {
@@ -563,11 +603,14 @@ async function doSearch() {
   resetPipeline();
   updateStage(0, 'active', '分类中…', 0);
 
+  // Show user message immediately in chat
+  addChatMessage('user', q);
+
   try {
     const r = await fetch('/api/v1/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: q })
+      body: JSON.stringify({ query: q, session_id: SESSION_ID })
     });
     const data = await r.json();
 
@@ -593,10 +636,10 @@ async function doSearch() {
     }
 
     $('metSources').textContent = (data.sources || []).length;
-    addResult(data);
+    addAssistantMessage(data);
     fetchMetrics();
   } catch(e) {
-    addResult({ answer: '请求失败: ' + e.message, intent: 'general', sources: [], confidence: 0 });
+    addAssistantMessage({ answer: '请求失败: ' + e.message, intent: 'general', sources: [], confidence: 0 });
   }
 
   btn.disabled = false;
@@ -605,34 +648,52 @@ async function doSearch() {
 
 function quickAsk(q) { $('queryInput').value = q; doSearch(); }
 
-/* ===== Result Card ===== */
-function addResult(data) {
-  const area = $('resultsArea');
-  const empty = area.querySelector('.empty-state');
+/* ===== Chat Messages ===== */
+function addChatMessage(role, text) {
+  var area = $('resultsArea');
+  var empty = area.querySelector('.empty-state');
   if (empty) empty.remove();
 
-  const intent = data.intent || 'general';
-  const conf = data.confidence || 0;
-  const confCls = conf >= 0.8 ? 'high' : conf >= 0.6 ? 'mid' : 'low';
-  const totalMs = data.pipeline_trace?.total_ms;
+  var wrap = document.createElement('div');
+  wrap.className = 'msg-wrap ' + role;
+  wrap.innerHTML =
+    '<div class="msg-role">' + (role === 'user' ? 'YOU' : 'IIKG') + '</div>' +
+    '<div class="msg-bubble">' + escHtml(text) + '</div>';
 
-  const card = document.createElement('div');
-  card.className = 'result-card';
-  card.innerHTML =
-    '<div class="card-top">' +
-      '<span class="intent-tag ' + intent + '">' + (INTENT_LABELS[intent] || intent) + '</span>' +
-      '<span class="conf-badge ' + confCls + '">' + (conf * 100).toFixed(0) + '%</span>' +
-      (totalMs != null ? '<span class="time-chip">' + totalMs.toFixed(0) + 'ms</span>' : '') +
-    '</div>' +
-    '<div class="answer-body">' + escHtml(data.answer) + '</div>' +
+  area.appendChild(wrap);
+  area.scrollTop = area.scrollHeight;
+}
+
+function addAssistantMessage(data) {
+  var area = $('resultsArea');
+  var empty = area.querySelector('.empty-state');
+  if (empty) empty.remove();
+
+  var intent = data.intent || 'general';
+  var conf = data.confidence || 0;
+  var confCls = conf >= 0.8 ? 'high' : conf >= 0.6 ? 'mid' : 'low';
+  var totalMs = data.pipeline_trace?.total_ms;
+
+  var wrap = document.createElement('div');
+  wrap.className = 'msg-wrap assistant';
+
+  var meta = '<div class="msg-meta">' +
+    '<span class="intent-tag ' + intent + '">' + (INTENT_LABELS[intent] || intent) + '</span>' +
+    '<span class="conf-dot ' + confCls + '">' + (conf * 100).toFixed(0) + '</span>' +
+    (totalMs != null ? '<span class="time-chip">' + totalMs.toFixed(0) + 'ms</span>' : '') +
     (data.sources && data.sources.length > 0 ?
-      '<div class="source-row">' +
-        data.sources.slice(0, 8).map(function(s) {
-          return '<span class="source-chip">' + escHtml(String(s)) + '</span>';
-        }).join('') +
-      '</div>' : '');
+      data.sources.slice(0, 4).map(function(s) {
+        return '<span class="source-chip">' + escHtml(String(s)) + '</span>';
+      }).join('') : '') +
+    '</div>';
 
-  area.insertBefore(card, area.firstChild);
+  wrap.innerHTML =
+    '<div class="msg-role">IIKG</div>' +
+    '<div class="msg-bubble">' + escHtml(data.answer) + '</div>' +
+    meta;
+
+  area.appendChild(wrap);
+  area.scrollTop = area.scrollHeight;
 }
 
 function escHtml(s) {
@@ -683,6 +744,9 @@ async function fetchMetrics() {
     if (m.total_queries > 0) {
       $('metQueries').textContent = m.total_queries;
       $('metUptime').textContent = (m.uptime_seconds || 0).toFixed(0) + 's';
+    }
+    if (m.cache) {
+      $('metCacheHit').textContent = ((m.cache.hit_rate || 0) * 100).toFixed(0) + '%';
     }
     const alerts = m.alerts || [];
     const aa = $('alertsArea');

@@ -2,8 +2,8 @@
 
 [![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green)](https://fastapi.tiangolo.com/)
-[![Tests](https://img.shields.io/badge/tests-166/166%20passed-brightgreen)](tests/)
-[![Coverage](https://img.shields.io/badge/coverage-61%25-yellow)](tests/)
+[![Tests](https://img.shields.io/badge/tests-164/166%20passed-brightgreen)](tests/)
+[![Coverage](https://img.shields.io/badge/coverage-59%25-yellow)](tests/)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 [![Code style](https://img.shields.io/badge/code%20style-ruff-261230)](https://docs.astral.sh/ruff/)
 
@@ -39,6 +39,28 @@
   │
   └─ [响应生成]  DeepSeek Chat + 多轮对话上下文 + 规则降级生成
 ```
+
+## 检索策略 Benchmark
+
+`python scripts/benchmark_retrieval.py` 对 10 条中文工业查询（故障排查 / 规格查询 / 兼容性），基于 BGE 语义嵌入 + Demo 模式数据，实测四种策略及全链路的表现：
+
+| 策略 | Recall@5 | MRR@5 | EntityHit@5 | P50 (ms) | P95 (ms) | Mean (ms) |
+|------|----------|-------|-------------|----------|----------|-----------|
+| HyDE | 0.790 | 1.000 | 0.450 | 10812 | 12520 | 10413 |
+| Vector | 0.527 | 0.633 | 0.550 | 0.2 | 5.5 | 0.4 |
+| KG | 0.487 | 0.553 | 0.700 | 0.0 | 0.2 | 0.0 |
+| No-Retrieval | 0.000 | 0.000 | 0.100 | 0.0 | 0.0 | 0.0 |
+| **全链路端到端** | — | — | — | **~29600** | — | — |
+
+**全链路耗时分解：** 意图分类 ~1.0s | 多路检索 ~10.5s | 生成回答 ~18.1s
+
+**关键发现：**
+- **HyDE 召回最高 (79%)** — LLM 生成的假设文档质量好，但 10 秒级延迟，适合需要深度理解的复杂问题
+- **Vector 平衡表现 (53% 召回, 63% MRR)** — BGE 语义嵌入提供亚毫秒级检索，适合事实型查询
+- **KG 实体命中最高 (70%)** — 结构化关系遍历零延迟，适合关系推理（故障→方案、兼容性）
+- **RRF 融合取各自长处** — 实际 `/search` 端点通过 RRF (k=60) 融合三路结果 + Cross-Encoder 重排
+
+> 注：全链路约 30s 中 ~29s 为 LLM API 耗时（DeepSeek Chat）。Demo 模式下使用 Mock 降级路径，全链路可降至 <100ms。
 
 ## 技术栈
 
@@ -88,7 +110,7 @@ Demo 模式降级策略：
 | BGE Embedding (HuggingFace) | SKIP_BGE_MODEL=1 跳过 | 零延迟 |
 | bge-reranker (HuggingFace) | 跳过重排，透传 RRF 结果 | 检索管线不中断 |
 | Milvus 向量库 | 本地 numpy 向量存储 | 向量检索可用 |
-| Neo4j 图库 | 检测 DEMO_MODE 或未配置 URI，跳过 KG 检索 | 不影响其他路径 |
+| Neo4j 图库 | 内置 Mock 知识图谱 (3产品/6故障/12方案+关系) | 结构化的故障→方案、兼容性、N-hop路径 |
 | LLM API (DeepSeek) | 关键词意图分类 + Mock HyDE 文档 + 规则生成 | 全链路可用 |
 
 ## 快速开始
