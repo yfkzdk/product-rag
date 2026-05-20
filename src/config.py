@@ -80,6 +80,13 @@ class Settings(BaseSettings):
     PROMETHEUS_PORT: int = 9090
     LOG_LEVEL: str = "INFO"
 
+    # 视觉识别配置
+    VISION_ENABLED: bool = False            # 启用图片识别功能
+    OCR_LANG: str = "ch"                    # OCR 语言: ch(中英混合) / en
+    VLM_PROVIDER: str = "ollama"            # VLM提供商: ollama / anthropic / openai
+    VLM_BASE_URL: str = "http://localhost:11434/v1"  # Ollama VLM 地址
+    VLM_MODEL: str = "minicpm-v:8b"        # 视觉语言模型
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 
